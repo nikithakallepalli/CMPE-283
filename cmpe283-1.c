@@ -11,11 +11,11 @@
  * Model specific registers (MSRs) by the module.
  * See SDM volume 4, section 2.1
  */
-#define IA32_VMX_PINBASED_CTLS	0x481
+#define IA32_VMX_PINBASED_CTLS 0x481
 #define IA32_VMX_PROCBASED_CTLS	0x482
-#define IA32_VMX_EXIT_CTLS	0x483
+#define IA32_VMX_EXIT_CTLS 0x483
 #define IA32_VMX_ENTRY_CTLS	0x484
-#define IA32_VMX_PROCBASED_CTLS2	0x48B
+#define IA32_VMX_PROCBASED_CTLS2 0x48B
 /*
  * struct caapability_info
  *
@@ -78,6 +78,45 @@ struct capability_info exitbased[11] =
 	{ 23, "Clear IA32_BNDCFGS" },
 	{ 24, "Conceal VM exits from Intel PT" }
 };
+struct capability_info secondaryprocbased[23] =
+{
+	{ 0, "Virtualize APIC accesses" },
+	{ 1, "Enable EPT" },
+	{ 2, "Descriptor-table exiting" },
+	{ 3, "Enable RDTSCP" },
+	{ 4, "Virtualize x2APIC mode" },
+	{ 5, "Enable VPID" },
+	{ 6, "WBINVD exiting" },
+	{ 7, "Unrestricted guest" },
+	{ 8, "APIC-register virtualization" },
+	{ 9, "Virtual-interrupt delivery" },
+	{ 10, "PAUSE-loop exiting" },
+	{ 11, "RDRAND exiting" },
+	{ 12, "Enable INVPCID" },
+	{ 13, "Enable VM functions" },
+	{ 14, "VMCS shadowing" },
+	{ 15, "Enable ENCLS exiting" },
+	{ 16, "RDSEED exiting" },
+	{ 17, "Enable PML" },
+	{ 18, "EPT-violation #VE" },
+	{ 19, "Conceal VMX nonroot operation from Intel PT" },
+	{ 20, "Enable XSAVES/XRSTORS" },
+	{ 22, "Mode-based execute control for EPT" },
+	{ 25, "Use TSC scaling" }
+};
+struct capability_info entrybased[9] =
+{
+	{ 2, "Load debug controls" },
+	{ 9, "IA-32e mode guest" },
+	{ 10, "Entry to SMM" },
+	{ 11, "Deactivate dualmonitor treatment" },
+	{ 13, "Load IA32_PERF_GLOBAL_CTRL" },
+	{ 14, "Load IA32_PAT" },
+	{ 15, "Load IA32_EFER" },
+	{ 16, "Load IA32_BNDCFGS" },
+	{ 17, "Conceal VM entries from Intel PT" }
+};
+
 /*
  * report_capability
  *
@@ -109,7 +148,25 @@ report_capability(struct capability_info *cap, uint8_t len, uint32_t lo,
 		printk(msg);
 	}
 }
+/*
+ * check if secondary proc based controls are enabled
+ */
+bool 
+isSecondaryProcEnabled(void)
+{
+	uint32_t lo, hi;
 
+	/* Primary procbased controls */
+	rdmsr(IA32_VMX_PROCBASED_CTLS, lo, hi);
+	if(hi & (1 << 31))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 /*
  * detect_vmx_features
  *
@@ -135,6 +192,25 @@ detect_vmx_features(void)
 	pr_info("Exitbased Controls MSR: 0x%llx\n",
 		(uint64_t)(lo | (uint64_t)hi << 32));
 	report_capability(exitbased, 11, lo, hi);
+	/* Secondary Procbased controls */
+	/* check if secondary proc based controls are enabled*/
+	if(isSecondaryProcEnabled())
+	{
+		rdmsr(IA32_VMX_PROCBASED_CTLS2, lo, hi);
+		pr_info("secondaryprocbased Controls MSR: 0x%llx\n",
+			(uint64_t)(lo | (uint64_t)hi << 32));
+		report_capability(secondaryprocbased, 23, lo, hi);
+	}
+	else
+	{
+		printk("secondaryprocbased Controls are not enbaled:\n");
+	}
+
+	/* Entrybased controls */
+	rdmsr(IA32_VMX_ENTRY_CTLS, lo, hi);
+	pr_info("entrybased Controls MSR: 0x%llx\n",
+		(uint64_t)(lo | (uint64_t)hi << 32));
+	report_capability(entrybased, 9, lo, hi);
 }
 
 /*
@@ -168,4 +244,4 @@ cleanup_module(void)
 {
 	printk(KERN_INFO "CMPE 283 Assignment 1 Module Exits\n");
 }
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GSL v2");
